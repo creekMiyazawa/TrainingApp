@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrainingApp</title>
+    <style>
+        .button-container {
+            display: flex;
+            flex-direction: column; /* ボタンを縦に並べる */
+            justify-content: center;
+            align-items: center;
+            gap: 20px; /* ボタン間のスペース */
+            height: 100vh; /* ビューポートの高さに合わせて、要素を画面いっぱいに広げる */
+        }
+        
+        button {
+            padding: 15px 30px; /* ボタンのサイズを調整 (デフォルトから約1.5倍) */
+            font-size: 24px; /* テキストサイズを大きく */
+            cursor: pointer; /* カーソルを指に */
+            border: none; /* 枠線なし */
+            border-radius: 5px; /* 角丸 */
+            margin: 10px 0; /* 上下のマージン */
+        }
+        
+        /* ボタンのタッチ領域を大きくする */
+        button {
+            min-width: 200px; /* ボタンの最小幅 */
+            height: 60px; /* ボタンの高さ */
+        }
+        
+        div#status{
+            font-size: 24px;
+        }
+        
+    </style>
+
+</head>
+<body>
+    <div class="button-container">
+        <div id="status">トレーニングを開始してください。</div>
+
+        <button id="startButton">スタート</button>
+        <button id="stopButton">ストップ</button>
+    </div>
+    
+
+    <script>
+        let isTrainingActive = false;
+
+        document.getElementById('startButton').addEventListener('click', function() {
+            if (!isTrainingActive) {
+                isTrainingActive = true;
+                startTraining();
+            }
+        });
+        
+        document.getElementById('stopButton').addEventListener('click', function() {
+            window.speechSynthesis.cancel();
+            isTrainingActive = false;
+            updateStatus(`キャンセルしました。`);
+        });
+        
+        // 既存の startTraining 関数内および関連関数内で、以下のようにステータス表示を更新
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        function startTraining() {
+            const setsSchedule = [6, 4, 3, 2]; // 各セットのスケジュール
+            let currentSetIndex = 0; // 現在のセットインデックス
+        
+            function nextSet() {
+                if (currentSetIndex < setsSchedule.length && isTrainingActive) {
+                    const setsCount = setsSchedule[currentSetIndex];
+                    updateStatus(`セット ${currentSetIndex + 1}/${setsSchedule.length}： ${setsCount}回繰り返します。`);
+                    speak(`今から ${setsCount} セット開始します。`, () => {
+                        doSets(setsCount, () => {
+                            currentSetIndex++;
+                            if (currentSetIndex < setsSchedule.length) {
+                                speak(`休憩時間です。`, () => {
+                                    doCountdown(20, nextSet); // 休憩後に次のセット
+                                });
+                            } else {
+                                speak(`トレーニング完了です。`, () => {
+                                    isTrainingActive = false;
+                                });
+                                updateStatus(`全てのトレーニングが完了しました。`);
+                            }
+                        });
+                    });
+                }
+
+            }
+        
+            nextSet();
+        }
+        
+        function doSets(setsCount, callback) {
+            if (setsCount > 0 && isTrainingActive) {
+                doCountdown(5, () => {
+                    setsCount--;
+                    if (setsCount > 0) {
+                        doSets(setsCount, callback); // 次のセットへ
+                    } else {
+                        callback(); // 全セット終了
+                    }
+                });
+            }
+        }
+        
+        function doCountdown(seconds, callback) {
+            let count = seconds;
+            let intervalId = setInterval(() => {
+                if (!isTrainingActive) {
+                    clearInterval(intervalId);
+                    return;
+                }
+        
+                if (count > 0) {
+                    speak(`${count}`, () => {
+                        if (--count <= 0) {
+                            clearInterval(intervalId);
+                            callback();
+                        }
+                    });
+                }
+            }, 1000);
+        }
+        
+        function speak(text, callback) {
+            let msg = new SpeechSynthesisUtterance(text);
+            msg.onend = callback;
+            window.speechSynthesis.speak(msg);
+        }
+        
+    </script>
+</body>
+</html>
